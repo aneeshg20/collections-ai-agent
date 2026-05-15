@@ -1,0 +1,11 @@
+invoice_id,customer_id,customer_name,invoice_date,due_date,days_overdue,invoice_amount,outstanding_amount,dispute_flag,dispute_count,avg_payment_delay_days,payment_behaviour_score
+INV-1001,CUST-101,Acme Manufacturing Ltd,2024-11-01,2024-11-30,141,85000.00,85000.00,True,3,45,3.2
+INV-1002,CUST-102,Blue Horizon Exports,2024-12-01,2024-12-31,110,42000.00,42000.00,False,0,12,7.8
+INV-1003,CUST-103,Nexus Retail Group,2025-01-15,2025-02-14,65,125000.00,62500.00,True,1,28,5.5
+INV-1004,CUST-104,Sunridge Logistics,2025-02-01,2025-03-03,48,31000.00,31000.00,False,0,8,8.9
+INV-1005,CUST-105,TechForge Industries,2025-02-15,2025-03-17,34,210000.00,210000.00,True,5,60,2.1
+INV-1006,CUST-106,Prairie Foods Co.,2025-03-01,2025-03-31,20,18500.00,18500.00,False,0,5,9.1
+INV-1007,CUST-107,Orion Steel Works,2025-01-10,2025-02-09,70,95000.00,47500.00,False,1,35,6.2
+INV-1008,CUST-108,Delta Pharma Ltd,2025-03-10,2025-04-09,11,56000.00,56000.00,False,0,3,9.5
+INV-1009,CUST-109,Vertex Construction,2024-10-20,2024-11-19,152,340000.00,340000.00,True,4,70,1.8
+INV-1010,CUST-110,Maple Leaf Distributors,2025-02-20,2025-03-22,29,22000.00,11000.00,False,0,15,7.4

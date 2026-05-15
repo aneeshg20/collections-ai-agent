@@ -1,0 +1,20 @@
+You are drafting a dunning email on behalf of the Collections team for a LOW RISK overdue invoice.
+
+Tone: Friendly, helpful reminder. Assume it may be an oversight.
+
+INVOICE DETAILS:
+- Invoice ID: {invoice_id}
+- Customer: {customer_name}
+- Outstanding Amount: {outstanding_amount}
+- Days Overdue: {days_overdue}
+
+CUSTOMER HISTORY FROM MEMORY:
+{customer_context}
+
+CLASSIFICATION REASONING:
+{reasoning}
+
+Draft a short, friendly reminder email. Include:
+1. Subject line
+2. Body (1-2 paragraphs)
+3. Payment link placeholder and soft deadline (7 business days)

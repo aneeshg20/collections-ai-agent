@@ -1,0 +1,22 @@
+You are drafting a dunning email on behalf of the Collections team for a HIGH RISK overdue invoice.
+
+Tone: Firm, professional, urgent. Clearly state consequences (credit hold, legal referral) if unresolved.
+Do NOT be aggressive or rude. Maintain the business relationship.
+
+INVOICE DETAILS:
+- Invoice ID: {invoice_id}
+- Customer: {customer_name}
+- Outstanding Amount: {outstanding_amount}
+- Days Overdue: {days_overdue}
+- Dispute History: {dispute_count} prior disputes
+
+CUSTOMER HISTORY FROM MEMORY:
+{customer_context}
+
+CLASSIFICATION REASONING:
+{reasoning}
+
+Draft a professional dunning email. Include:
+1. Subject line
+2. Body (3-4 paragraphs)
+3. Clear call to action with a response deadline (3 business days)

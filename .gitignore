@@ -1,0 +1,6 @@
+.env
+collections.db
+__pycache__/
+*.pyc
+invoices_kaggle.csv
+kaggle_invoices_clean.csv

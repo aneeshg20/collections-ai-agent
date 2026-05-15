@@ -1,0 +1,6 @@
+vendor,invoice_amount,payment_term_days,days_since_invoice
+Siemens,500000,30,25
+Honeywell,1200000,45,67
+ABB,750000,60,45
+Bosch,320000,30,31
+Schneider,890000,45,44
