@@ -91,6 +91,10 @@ collections-agent/
 ├── .env.example
 └── README.md
 
+## 🎬 Demo
+
+[▶ Watch Demo Video](https://youtu.be/T6nuN8oWnps)
+
 ## 🔮 Roadmap
 
 - [ ] LangGraph multi-agent orchestration
