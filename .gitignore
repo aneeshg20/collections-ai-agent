@@ -4,3 +4,10 @@ __pycache__/
 *.pyc
 invoices_kaggle.csv
 kaggle_invoices_clean.csv
+agent/practice_*.py
+agent/python_Day11.py
+agent/sql_assignment.py
+agent/clean_kaggle_data.py
+agent/kaggle_sample_20.csv
+agent/streamlit*.pdf
+agent/practice_sql1.py
