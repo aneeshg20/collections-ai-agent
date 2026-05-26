@@ -91,6 +91,10 @@ collections-agent/
 ├── .env.example
 └── README.md
 
+## 🔄 Agent Architecture
+
+![LangGraph Agent Flow](agent/graph_visualisation.png)
+
 ## 🎬 Demo
 
 [▶ Watch Demo Video](https://youtu.be/T6nuN8oWnps)
