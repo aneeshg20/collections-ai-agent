@@ -117,7 +117,7 @@ def check_ageing(state: InvoiceState):
     bucket_90_plus = vendor_data['bucket_90_plus'].iloc[0]
     bucket_31_60 = vendor_data['bucket_31_60'].iloc[0]
 
-    aging_risk_flag = bucket_61_90 > 0 or bucket_31_60 > 0
+    aging_risk_flag = bucket_61_90 > 0 or bucket_90_plus > 0
 
     aging_summary = f"0-30: {vendor_data['bucket_0_30'].iloc[0]:,} | 31-60: {bucket_31_60:,} | 61-90: {bucket_61_90:,} | 90+: {bucket_90_plus:,}"
     return {
@@ -166,6 +166,12 @@ graph.add_conditional_edges(
 graph.add_edge("escalate","log_telemetry")
 graph.add_edge("log_telemetry", END)
 app = graph.compile()
+# Visualise the graph
+from IPython.display import Image
+graph_image = app.get_graph().draw_mermaid_png()
+with open("agent/graph_visualisation.png", "wb") as f:
+    f.write(graph_image)
+print("Graph saved to agent/graph_visualisation.png")
 
 conn = sqlite3.connect("collections.db")
 
@@ -183,7 +189,11 @@ for _, row in data.iterrows():
         "reasoning": "",
         "overdue_flag": False,
         "days_overdue": 0,
-        "amount_tier": ""
+        "amount_tier": "",
+        "aging_risk_flag": False,   
+        "aging_summary": "",         
+        "dispute_count": 0,          
+        "dispute_flag": False        
     }
 
     # Run it
