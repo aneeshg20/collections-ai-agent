@@ -52,6 +52,7 @@ class InvoiceState(TypedDict):
     avg_days_to_pay: int
     recommended_action: str
     retrieved_context: str
+    drafted_communication: str
 
 # ============================================================
 # Helper Functions
@@ -240,6 +241,73 @@ REASONING: [2-3 sentences explaining key drivers]
         "recommended_action": recommended_action
     }
 
+def draft_communication(state: InvoiceState):
+    action = state["recommended_action"]
+    
+    if action == "ESCALATE_SENIOR_MANAGEMENT":
+        comm_type = "internal escalation memo to senior management"
+        tone = "urgent and factual"
+        recipient = "CFO and Head of Finance"
+    elif action == "PLACE_CREDIT_HOLD":
+        comm_type = "internal credit hold notification + customer notification"
+        tone = "firm but professional"
+        recipient = "Credit team and customer AP contact"
+    elif action == "INITIATE_LEGAL_REVIEW":
+        comm_type = "legal review request memo"
+        tone = "formal and detailed"
+        recipient = "Legal department"
+    elif action == "SEND_DUNNING_LEVEL_2":
+        comm_type = "firm dunning email - Level 2"
+        tone = "firm with clear payment deadline"
+        recipient = "Customer AP contact"
+    elif action == "SEND_DUNNING_LEVEL_1":
+        comm_type = "standard dunning email - Level 1"
+        tone = "professional reminder"
+        recipient = "Customer AP contact"
+    else:
+        comm_type = "courtesy payment reminder"
+        tone = "friendly and brief"
+        recipient = "Customer AP contact"
+
+    message = client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=1024,
+        system=f"""You are the Communication Drafting Agent for an enterprise collections team.
+
+Draft a {comm_type} for the following invoice situation.
+
+RECIPIENT: {recipient}
+TONE: {tone}
+
+INVOICE CONTEXT:
+Vendor: {state['vendor']}
+Amount: INR {state['invoice_amount']:,.0f}
+Days Overdue: {state['days_overdue']}
+Vendor Tier: {state['vendor_tier']}
+Risk Rating: {state['risk_rating']}
+Recommended Action: {action}
+
+KEY RISK SIGNALS:
+- Aging: {state['aging_summary']}
+- Open Disputes: {state['dispute_count']}
+- Broken PTPs: {state['ptp_broken_count']}
+- Credit Utilization: {state['credit_utilization']}%
+
+REQUIREMENTS:
+1. Include appropriate subject line
+2. Reference invoice details specifically
+3. State clear next steps with deadlines
+4. Match the tone requested
+5. End with appropriate signature line
+6. Maximum 200 words
+
+Output the complete communication ready for human review and approval.
+""",
+        messages=[{"role": "user", "content": f"Draft the {comm_type} for {state['vendor']}."}]
+    )
+    
+    return {"drafted_communication": message.content[0].text}
+
 def escalate(state: InvoiceState):
     return {}
 
@@ -281,6 +349,7 @@ def build_graph():
     graph.add_node("pre_classify", pre_classify)
     graph.add_node("retrieve_history", retrieve_history)
     graph.add_node("collection_strategy", collection_strategy)
+    graph.add_node("draft_communication", draft_communication)
     graph.add_node("escalate", escalate)
     graph.add_node("log_telemetry", log_telemetry)
     
@@ -292,9 +361,10 @@ def build_graph():
     graph.add_edge("check_vendor_master", "pre_classify")
     graph.add_edge("pre_classify", "retrieve_history")
     graph.add_edge("retrieve_history", "collection_strategy")
+    graph.add_edge("collection_strategy", "draft_communication")
     
     graph.add_conditional_edges(
-        "collection_strategy",
+        "draft_communication",
         route_by_risk,
         {
             "escalate": "escalate",
@@ -314,9 +384,8 @@ app_graph = build_graph()
 # ============================================================
 
 st.title("💰 Collections AI Agent")
-st.markdown("**Enterprise Invoice Risk Assessment | Powered by 10-node LangGraph pipeline with RAG**")
+st.markdown("**Enterprise Invoice Risk Assessment | Powered by 11-node LangGraph pipeline with RAG**")
 
-# Sidebar info
 with st.sidebar:
     st.header("📋 Architecture")
     st.markdown("""
@@ -329,8 +398,9 @@ with st.sidebar:
     6. Pre-Classifier
     7. Retrieve History (RAG)
     8. Collection Strategy Agent
-    9. Conditional Escalation
-    10. Telemetry Logger
+    9. Communication Drafting Agent
+    10. Conditional Escalation
+    11. Telemetry Logger
     """)
     
     st.header("🛠️ Tech Stack")
@@ -338,12 +408,11 @@ with st.sidebar:
     - Claude Sonnet 4.5 API
     - LangGraph
     - SQLite (telemetry)
-    - ChromaDB (RAG)
+    - Vector Store (RAG)
     - Pandas
     - Streamlit
     """)
 
-# Main content
 st.subheader("📤 Upload Invoice Data")
 uploaded_file = st.file_uploader("Upload invoice CSV file", type=['csv'])
 
@@ -384,7 +453,8 @@ if uploaded_file is not None:
                 "vendor_risk_flag": False,
                 "avg_days_to_pay": 0,
                 "recommended_action": "",
-                "retrieved_context": ""
+                "retrieved_context": "",
+                "drafted_communication": ""
             }
             
             result = app_graph.invoke(invoice)
@@ -394,7 +464,6 @@ if uploaded_file is not None:
         
         status_text.text("✅ Processing complete!")
         
-        # Portfolio Summary Metrics
         st.subheader("📊 Portfolio Summary")
         
         high_risk = sum(1 for r in results if r['risk_rating'] == 'HIGH')
@@ -408,9 +477,8 @@ if uploaded_file is not None:
         col3.metric("🔴 HIGH Risk", high_risk)
         col4.metric("🟡 MEDIUM Risk", medium_risk)
         
-        # Detailed Results
         st.subheader("📊 Detailed Risk Assessment")
-        st.caption("Click any vendor to see full analysis")
+        st.caption("Click any vendor to see full analysis and drafted communication")
         
         for result in results:
             color = "🔴" if result['risk_rating'] == 'HIGH' else "🟡" if result['risk_rating'] == 'MEDIUM' else "🟢"
@@ -418,14 +486,12 @@ if uploaded_file is not None:
             with st.expander(
                 f"{color} **{result['vendor']}** | Risk: **{result['risk_rating']}** | Action: **{result['recommended_action']}**"
             ):
-                # Top metrics
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Amount", f"₹{result['invoice_amount']:,.0f}")
                 col2.metric("Days Overdue", result['days_overdue'])
                 col3.metric("Vendor Tier", result['vendor_tier'])
                 col4.metric("Payment Score", f"{result['payment_score']}/100")
                 
-                # UA Findings
                 st.markdown("### 📋 Utility Agent Findings")
                 
                 col_a, col_b = st.columns(2)
@@ -440,18 +506,33 @@ if uploaded_file is not None:
                     st.markdown(f"**Vendor Risk Flag:** {'🔴 At-Risk' if result['vendor_risk_flag'] else '🟢 Healthy'}")
                     st.markdown(f"**Avg Days to Pay:** {result['avg_days_to_pay']}")
                 
-                # Full Reasoning
-                st.markdown("### 💭 Full Risk Assessment")
-                st.text_area("", value=result['reasoning'], height=300, key=f"reasoning_{result['vendor']}", label_visibility="collapsed")
+                # Tabs for organized content
+                tab1, tab2, tab3 = st.tabs(["💭 Full Assessment", "✉️ Drafted Communication", "📚 Historical Context"])
                 
-                # RAG Context
-                st.markdown("### 📚 Historical Context (Retrieved via RAG)")
-                st.text_area("", value=result['retrieved_context'], height=150, key=f"context_{result['vendor']}", label_visibility="collapsed")
+                with tab1:
+                    st.markdown("**Collection Strategy Agent Output:**")
+                    st.text_area("", value=result['reasoning'], height=300, key=f"reasoning_{result['vendor']}", label_visibility="collapsed")
+                
+                with tab2:
+                    st.markdown("**Communication Drafting Agent Output (Awaiting Human Approval):**")
+                    st.markdown(result['drafted_communication'])
+                    
+                    col_x, col_y, col_z = st.columns(3)
+                    with col_x:
+                        st.button("✅ Approve & Send", key=f"approve_{result['vendor']}", type="primary")
+                    with col_y:
+                        st.button("✏️ Edit Draft", key=f"edit_{result['vendor']}")
+                    with col_z:
+                        st.button("❌ Reject", key=f"reject_{result['vendor']}")
+                    st.caption("Note: Approval buttons are placeholders for HITL integration (Phase v1.5)")
+                
+                with tab3:
+                    st.markdown("**Retrieved Similar Past Cases (RAG):**")
+                    st.text_area("", value=result['retrieved_context'], height=200, key=f"context_{result['vendor']}", label_visibility="collapsed")
 
 else:
     st.info("👆 Upload an invoices CSV file to start the assessment. Use the format: vendor, invoice_amount, days_since_invoice, payment_term_days")
     
-    # Show sample data
     st.subheader("📋 Sample Format")
     sample = pd.DataFrame({
         "vendor": ["Honeywell", "Siemens"],
