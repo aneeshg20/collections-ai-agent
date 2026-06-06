@@ -1,0 +1,11 @@
+vendor,promise_date,promised_amount,actual_pay_date,broken_flag
+Siemens,2026-01-10,500000,2026-01-09,False
+Siemens,2026-02-15,750000,2026-02-14,False
+Honeywell,2026-01-05,1200000,2026-01-25,True
+Honeywell,2026-02-10,980000,2026-03-05,True
+Honeywell,2026-03-15,1100000,2026-04-10,True
+ABB,2026-01-20,750000,2026-01-22,False
+ABB,2026-02-25,620000,2026-03-10,True
+Bosch,2026-01-15,320000,2026-01-18,False
+Bosch,2026-02-20,290000,2026-02-19,False
+Schneider,2026-02-10,890000,2026-02-25,False

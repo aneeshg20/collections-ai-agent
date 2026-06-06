@@ -1,0 +1,7 @@
+vendor,dispute_id,dispute_type,amount,status,raised_date
+Honeywell,D001,Pricing,250000,Open,2026-03-10
+Honeywell,D002,Quality,180000,Open,2026-04-01
+ABB,D003,Delivery,95000,Pending,2026-02-15
+Bosch,D004,Duplicate Invoice,320000,Resolved,2026-01-20
+Schneider,D005,Pricing,140000,Pending,2026-03-25
+Siemens,D006,Quality,60000,Resolved,2026-01-05

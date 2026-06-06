@@ -1,0 +1,6 @@
+vendor,credit_limit,current_exposure,utilisation_pct
+Siemens,2000000,600000,30.0
+Honeywell,2000000,1900000,95.0
+ABB,1500000,900000,60.0
+Bosch,1000000,650000,65.0
+Schneider,1500000,1200000,80.0

@@ -1,0 +1,6 @@
+vendor,tier,payment_score,avg_days_to_pay,country,relationship_years
+Siemens,Strategic,85,28,Germany,8
+Honeywell,At-Risk,35,67,USA,5
+ABB,Preferred,65,42,Switzerland,6
+Bosch,Preferred,70,32,Germany,10
+Schneider,Standard,58,44,France,4
