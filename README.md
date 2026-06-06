@@ -1,5 +1,12 @@
 # 💰 Collections AI Agent
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit)](https://aneesh-collections-ai-agent.streamlit.app/)
+[![Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-red?logo=youtube)](https://youtu.be/T6nuN8oWnps)
+
+**Try it now:** [aneesh-collections-ai-agent.streamlit.app](https://aneesh-collections-ai-agent.streamlit.app/)
+
+# 💰 Collections AI Agent
+
 An intelligent invoice risk assessment agent built with Python, Claude AI, Streamlit, and SQLite. Designed to automate collections strategy decisions for enterprise AR portfolios.
 
 ## 🎯 What it does
