@@ -148,8 +148,8 @@ def collection_strategy(state: InvoiceState):
 def log_telemetry (state: InvoiceState):
     conn = sqlite3.connect("collections.db")
     conn.execute("""
-                 INSERT INTO agent_runs(vendor, risk_rating, timestamp, tokens_used, model,days_overdue,amount_tier,overdue_flag,reasoning)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 INSERT INTO agent_runs(vendor, risk_rating, timestamp, tokens_used, model,days_overdue,amount_tier,overdue_flag,reasoning,recommended_action)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                   (
                       state['vendor'],
                       state['risk_rating'],
@@ -159,7 +159,8 @@ def log_telemetry (state: InvoiceState):
                       state['days_overdue'],
                       state['amount_tier'],
                       state['overdue_flag'],
-                      state['reasoning']
+                      state['reasoning'],
+                      state['recommended_action']
                   )
                  )
     conn.commit()
