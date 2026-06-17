@@ -246,10 +246,13 @@ def check_vendor_master(state: InvoiceState):
             "vendor_risk_flag": vendor_risk_flag
     }
 
+from sentence_transformers import SentenceTransformer
+
+_embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+
 def embed(text):
-    """Same hash embedding as chromadb_setup.py"""
-    hash_bytes = hashlib.sha256(text.encode()).digest()
-    return [hash_bytes[i % len(hash_bytes)] / 255.0 for i in range(128)]
+    """Semantic embedding via sentence-transformers (384 dimensions)."""
+    return _embed_model.encode(text).tolist()
 
 def cosine_similarity(a, b):
     a, b = np.array(a), np.array(b)

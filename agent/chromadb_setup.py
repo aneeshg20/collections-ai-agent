@@ -5,10 +5,16 @@ import numpy as np
 
 # ─── Simple Vector Store (no ChromaDB hanging issues) ───
 
+from sentence_transformers import SentenceTransformer
+
+# Load the model ONCE at module level (expensive to load repeatedly)
+print("Loading semantic embedding model...")
+_model = SentenceTransformer('all-MiniLM-L6-v2')
+print("Model loaded.")
+
 def embed(text):
-    """Hash-based embedding — instant, no downloads."""
-    hash_bytes = hashlib.sha256(text.encode()).digest()
-    return [hash_bytes[i % len(hash_bytes)] / 255.0 for i in range(128)]
+    """Semantic embedding via sentence-transformers (384 dimensions)."""
+    return _model.encode(text).tolist()
 
 def cosine_similarity(a, b):
     a, b = np.array(a), np.array(b)

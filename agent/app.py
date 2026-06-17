@@ -60,9 +60,17 @@ class InvoiceState(TypedDict):
 # Helper Functions
 # ============================================================
 
+from sentence_transformers import SentenceTransformer
+
+@st.cache_resource
+def load_embed_model():
+    return SentenceTransformer('all-MiniLM-L6-v2')
+
+_embed_model = load_embed_model()
+
 def embed(text):
-    hash_bytes = hashlib.sha256(text.encode()).digest()
-    return [hash_bytes[i % len(hash_bytes)] / 255.0 for i in range(128)]
+    """Semantic embedding via sentence-transformers (384 dimensions)."""
+    return _embed_model.encode(text).tolist()
 
 def cosine_similarity(a, b):
     a, b = np.array(a), np.array(b)
