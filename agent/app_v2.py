@@ -411,8 +411,28 @@ if st.session_state.invoices:
                              key=f"reason_{thread_id}", label_visibility="collapsed")
             with t2:
                 st.markdown(r['drafted_communication'])
-                # Approve/Reject buttons come in Increment 4
-                st.info("Approve/Reject buttons arrive in Increment 4")
+                st.divider()
+
+                if entry["status"] == "awaiting_approval":
+                    st.warning("⏸️ Paused at approval gate — state persisted. Nothing sent until you approve.")
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button("✅ Approve & Send", key=f"approve_{thread_id}", type="primary"):
+                            # Resume THIS invoice's paused graph by its thread_id
+                            app_graph.invoke(None, entry["config"])
+                            st.session_state.invoices[thread_id]["status"] = "sent"
+                            st.rerun()
+                    with b2:
+                        if st.button("❌ Reject", key=f"reject_{thread_id}"):
+                            # Mark rejected - never resume, nothing sent
+                            st.session_state.invoices[thread_id]["status"] = "rejected"
+                            st.rerun()
+
+                elif entry["status"] == "sent":
+                    st.success("✅ Approved — agent resumed from checkpoint and communication dispatched.")
+
+                elif entry["status"] == "rejected":
+                    st.error("❌ Rejected — communication not sent. (Production: route to re-draft.)")
             with t3:
                 st.text_area("", value=r['retrieved_context'], height=200,
-                             key=f"ctx_{thread_id}", label_visibility="collapsed")
+                    key=f"ctx_{thread_id}", label_visibility="collapsed")
