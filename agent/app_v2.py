@@ -355,17 +355,64 @@ if st.button("🗑️ Clear all"):
 st.divider()
 st.caption(f"Invoices in session: **{len(st.session_state.invoices)}**")
 
-for thread_id, entry in st.session_state.invoices.items():
-    r = entry["result"]
-    color = "🔴" if r["risk_rating"] == "HIGH" else "🟡" if r["risk_rating"] == "MEDIUM" else "🟢"
-    status_badge = {
-        "awaiting_approval": "⏸️ Awaiting approval",
-        "sent": "✅ Sent",
-        "rejected": "❌ Rejected",
-    }.get(entry["status"], entry["status"])
+st.divider()
 
-    with st.expander(f"{color} {r['vendor']} — {r['risk_rating']} — {status_badge}"):
-        st.write(f"**Action:** {r['recommended_action']}")
-        st.write(f"**Status:** {entry['status']}")
-        st.write(f"**Thread ID:** `{thread_id}`")
-        st.caption(r["drafted_communication"])
+if st.session_state.invoices:
+    # Portfolio summary
+    all_results = [e["result"] for e in st.session_state.invoices.values()]
+    high = sum(1 for r in all_results if r["risk_rating"] == "HIGH")
+    medium = sum(1 for r in all_results if r["risk_rating"] == "MEDIUM")
+    total_amt = sum(r["invoice_amount"] for r in all_results)
+
+    st.subheader("📊 Portfolio Summary")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Invoices", len(all_results))
+    c2.metric("Total Exposure", f"₹{total_amt:,.0f}")
+    c3.metric("🔴 HIGH", high)
+    c4.metric("🟡 MEDIUM", medium)
+
+    st.subheader("📋 Invoices — Review & Action")
+    st.caption("Expand each invoice to review the assessment and drafted communication")
+
+    for thread_id, entry in st.session_state.invoices.items():
+        r = entry["result"]
+        color = "🔴" if r["risk_rating"] == "HIGH" else "🟡" if r["risk_rating"] == "MEDIUM" else "🟢"
+        status_badge = {
+            "awaiting_approval": "⏸️ Awaiting approval",
+            "sent": "✅ Sent",
+            "rejected": "❌ Rejected",
+        }.get(entry["status"], entry["status"])
+
+        with st.expander(f"{color} **{r['vendor']}** — {r['risk_rating']} — {r['recommended_action']} — {status_badge}"):
+            # Metrics row
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Amount", f"₹{r['invoice_amount']:,.0f}")
+            m2.metric("Days Overdue", r['days_overdue'])
+            m3.metric("Vendor Tier", r['vendor_tier'])
+            m4.metric("Payment Score", f"{r['payment_score']}/100")
+
+            # UA findings
+            st.markdown("**📋 Utility Agent Findings**")
+            f1, f2 = st.columns(2)
+            with f1:
+                st.markdown(f"Aging Risk: {'🔴 Flagged' if r['aging_risk_flag'] else '🟢 Clean'}")
+                st.caption(r['aging_summary'])
+                st.markdown(f"Open Disputes: {r['dispute_count']} {'🔴' if r['dispute_flag'] else '🟢'}")
+                st.markdown(f"PTP Broken: {r['ptp_broken_count']} {'🔴' if r['ptp_risk_flag'] else '🟢'}")
+            with f2:
+                st.markdown(f"Credit Utilization: {r['credit_utilization']}% {'🔴' if r['credit_risk_flag'] else '🟢'}")
+                st.markdown(f"Vendor Risk: {'🔴 At-Risk' if r['vendor_risk_flag'] else '🟢 Healthy'}")
+                st.markdown(f"Avg Days to Pay: {r['avg_days_to_pay']}")
+
+            # Tabbed detail
+            t1, t2, t3 = st.tabs(["💭 Assessment", "✉️ Drafted Communication", "📚 Historical Context"])
+            with t1:
+                st.text_area("", value=r['reasoning'], height=250,
+                             key=f"reason_{thread_id}", label_visibility="collapsed")
+            with t2:
+                st.markdown(r['drafted_communication'])
+                # Approve/Reject buttons come in Increment 4
+                st.info("Approve/Reject buttons arrive in Increment 4")
+            with t3:
+                st.text_area("", value=r['retrieved_context'], height=200,
+                             key=f"ctx_{thread_id}", label_visibility="collapsed")
