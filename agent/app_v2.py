@@ -65,6 +65,64 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8))
 
 # ============================================================
+# Schema Mapper - translates arbitrary CSV structures
+# ============================================================
+REQUIRED_COLUMNS = ['vendor', 'invoice_amount', 'days_since_invoice', 'payment_term_days']
+
+REQUIRED_SCHEMA = {
+    "vendor": "Name of the vendor/customer/company the invoice is for",
+    "invoice_amount": "The monetary amount of the invoice (number)",
+    "days_since_invoice": "How many days since the invoice was raised (number)",
+    "payment_term_days": "The agreed payment term in days (number)"
+}
+
+def detect_mapping(df):
+    """Uses Claude to map uploaded CSV columns to the required schema."""
+    columns = list(df.columns)
+    sample_rows = df.head(3).to_dict(orient="records")
+
+    system_prompt = f"""You are a Schema Mapping Agent. Map columns from an uploaded CSV to a required target schema.
+
+TARGET SCHEMA:
+{json.dumps(REQUIRED_SCHEMA, indent=2)}
+
+UPLOADED CSV COLUMNS:
+{columns}
+
+SAMPLE DATA (first 3 rows):
+{json.dumps(sample_rows, indent=2, default=str)}
+
+Map each target field to the most appropriate uploaded column.
+If a target field has NO reasonable match, set it to null. Do NOT guess.
+
+Respond with ONLY a JSON object:
+{{
+  "vendor": "uploaded_column_or_null",
+  "invoice_amount": "uploaded_column_or_null",
+  "days_since_invoice": "uploaded_column_or_null",
+  "payment_term_days": "uploaded_column_or_null"
+}}"""
+
+    message = client.messages.create(
+        model="claude-sonnet-4-5", max_tokens=512,
+        system=system_prompt,
+        messages=[{"role": "user", "content": "Map the columns and return the JSON."}]
+    )
+    txt = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+    return json.loads(txt)
+
+def validate_mapping(mapping):
+    """Returns (is_sufficient, missing_fields)."""
+    missing = [field for field, src in mapping.items() if src is None or src == "null"]
+    return len(missing) == 0, missing
+
+def apply_mapping(df, mapping):
+    """Renames uploaded columns to schema names, keeps only what's needed."""
+    rename_dict = {src: target for target, src in mapping.items() if src}
+    mapped = df.rename(columns=rename_dict)
+    return mapped[list(mapping.keys())]
+
+# ============================================================
 # Nodes (numpy-safe casts for checkpointer serialization)
 # ============================================================
 def check_ageing(state: InvoiceState):
@@ -300,9 +358,62 @@ st.subheader("Upload & batch assess")
 uploaded_file = st.file_uploader("Upload invoice CSV", type=['csv'])
 
 if uploaded_file is not None:
-    invoices_df = pd.read_csv(uploaded_file)
+    try:
+        raw_df = pd.read_csv(uploaded_file)
+    except Exception as e:
+        st.error(f"❌ Could not read CSV: {e}")
+        st.stop()
+
+    if raw_df.empty:
+        st.error("❌ The uploaded CSV is empty.")
+        st.stop()
+
+    # ─── Scenario routing ───
+    has_required = set(REQUIRED_COLUMNS).issubset(set(raw_df.columns))
+
+    if has_required:
+        # Clean file - already conforms, no mapper needed (no API cost)
+        invoices_df = raw_df[REQUIRED_COLUMNS].copy()
+        st.success("✅ CSV already matches required schema.")
+    else:
+        # Foreign structure - invoke Schema Mapper
+        st.info("🔍 Columns don't match the required schema. Running Schema Mapper Agent...")
+        with st.spinner("Claude mapping columns..."):
+            try:
+                mapping = detect_mapping(raw_df)
+            except Exception as e:
+                st.error(f"❌ Schema Mapper failed: {e}")
+                st.stop()
+
+        is_sufficient, missing = validate_mapping(mapping)
+
+        # Show what the mapper found
+        st.write("**Detected mapping:**")
+        for target, source in mapping.items():
+            st.write(f"- `{target}` ← {source if source else '❌ NOT FOUND'}")
+
+        if not is_sufficient:
+            st.error(f"❌ INSUFFICIENT DATA — cannot proceed. Missing required fields: {missing}")
+            st.caption("The uploaded CSV does not contain data for these fields. Pipeline blocked to avoid processing incomplete data.")
+            st.stop()
+
+        invoices_df = apply_mapping(raw_df, mapping)
+        st.success("✅ Schema Mapper translated the CSV successfully.")
+
+    # ─── Validate numeric columns (catches text-in-number scenario) ───
+    for col in ['invoice_amount', 'days_since_invoice', 'payment_term_days']:
+        invoices_df[col] = pd.to_numeric(invoices_df[col], errors='coerce')
+    if invoices_df[['invoice_amount', 'days_since_invoice', 'payment_term_days']].isnull().any().any():
+        st.error("❌ Some numeric fields contain non-numeric or empty values after mapping. Please clean the data.")
+        st.stop()
+
+    # ─── 50-invoice cap (cost control) ───
+    if len(invoices_df) > 50:
+        st.error(f"❌ Too many invoices ({len(invoices_df)}). Max 50 in this demo.")
+        st.stop()
+
     st.dataframe(invoices_df, use_container_width=True)
-    st.caption(f"{len(invoices_df)} invoices")
+    st.caption(f"{len(invoices_df)} invoices ready")
 
     if st.button("🚀 Run Batch Assessment", type="primary"):
         st.session_state.invoices = {}  # fresh batch
