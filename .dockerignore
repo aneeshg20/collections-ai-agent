@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.git/
+.gitignore
+*.md
+dev/
+checkpoints.db
+chroma_db/
+.cache/
+venv/

@@ -1,0 +1,9 @@
+streamlit
+anthropic
+python-dotenv
+pandas
+numpy
+langgraph
+langchain-anthropic
+langgraph-checkpoint-sqlite
+sentence-transformers
