@@ -1,11 +1,11 @@
 # 💰 Collections AI Agent
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit)](https://aneesh-collections-ai-agent.streamlit.app/)
-[![Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-red?logo=youtube)](https://youtu.be/T6nuN8oWnps)
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://www.python.org)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Agentic%20AI-green)](https://langchain-ai.github.io/langgraph/)
+[![Docker](https://img.shields.io/badge/Docker-Containerised-2496ED?logo=docker)](https://www.docker.com/)
 
-**An enterprise-grade agentic AI system for accounts receivable risk assessment and collections strategy automation.**
+**An enterprise-grade agentic AI system for accounts receivable risk assessment and collections strategy automation — with human-in-the-loop approval, semantic retrieval, and arbitrary-schema ingestion.**
 
 **🚀 Try it live:** [aneesh-collections-ai-agent.streamlit.app](https://aneesh-collections-ai-agent.streamlit.app/)
 
@@ -13,46 +13,51 @@
 
 ## 🎯 What This Does
 
-The Collections AI Agent automates the workflow that a senior collections analyst performs manually for every overdue invoice — but does it consistently, auditably, and at scale.
+The Collections AI Agent automates the workflow a senior collections analyst performs manually for every overdue invoice — consistently, auditably, and at scale, while keeping a human in control of every consequential action.
 
 For every invoice uploaded, the agent:
 
-1. **Gathers signals** from 5 utility agents in parallel (aging, disputes, PTP history, credit balance, vendor master)
-2. **Retrieves historical context** from a vector store of past decisions (RAG)
-3. **Scores risk** using a defined rubric (0-15 points) producing auditable decisions
-4. **Recommends a specific action** from 6 predefined strategies
-5. **Drafts the actual communication** ready for human review
-6. **Logs every decision** to a telemetry database for compliance and analysis
-
-A human collector reviewing 100 invoices per day handles in 8 hours what this agent processes in 5 minutes — with full audit trail.
+1. **Ingests any CSV structure** via a Claude-powered Schema Mapper that maps arbitrary columns to the required schema — and refuses to proceed on insufficient data rather than hallucinating
+2. **Gathers signals** from 5 utility agents dispatched in parallel (aging, disputes, PTP history, credit balance, vendor master)
+3. **Retrieves historical context** from a semantic vector store of past decisions (RAG)
+4. **Scores risk** using a defined rubric (0-15 points) producing auditable decisions
+5. **Recommends a specific action** from 6 predefined collections strategies
+6. **Drafts the actual communication** calibrated to vendor tier and risk level
+7. **Pauses at a human approval gate** — nothing is sent until a human reviews and approves, with full state persisted to disk
+8. **Logs every decision** to a telemetry database for compliance and cross-run analysis
 
 ---
 
-## 🔄 Architecture — 11-Node LangGraph Pipeline
+## 🔄 Architecture — 12-Node LangGraph Pipeline with HITL
 
 ```
 START
   ↓
-check_ageing          Reads aging_buckets.csv → flags 61-90 / 90+ day exposure
+orchestrator_dispatch        Send API → 5 utility agents in parallel
+  ├── check_ageing           Reads aging_buckets.csv → flags 61-90 / 90+ day exposure
+  ├── check_disputes         Reads dispute_history.csv → counts open disputes
+  ├── check_ptp              Reads ptp_history.csv → counts broken promises
+  ├── check_credit           Reads credit_balance.csv → flags 80%+ utilisation
+  └── check_vendor_master    Reads vendor_master.csv → vendor tier and payment score
   ↓
-check_disputes        Reads dispute_history.csv → counts open disputes
+aggregator                   Parallel merge point — waits for all 5 UAs
   ↓
-check_ptp             Reads ptp_history.csv → counts broken promises
+pre_classify                 Rules-based: overdue flag, days overdue, amount tier
   ↓
-check_credit          Reads credit_balance.csv → flags 80%+ utilisation
+retrieve_history             RAG: semantic search over past decisions (sentence-transformers)
   ↓
-check_vendor_master   Reads vendor_master.csv → vendor tier and payment score
+collection_strategy          Claude API with rubric scoring → risk rating + action
   ↓
-pre_classify          Rules-based: overdue flag, days overdue, amount tier
-  ↓
-retrieve_history      RAG: queries vector store for similar past cases
-  ↓
-collection_strategy   Claude API with rubric scoring → risk rating + action
-  ↓
-draft_communication   Claude API → drafts actual email per recommended action
+draft_communication          Claude API → drafts actual email per recommended action
   ↓ (conditional edge by route_by_risk)
-  ├── HIGH → escalate → log_telemetry → END
-  └── LOW/MEDIUM → log_telemetry → END
+  ├── HIGH → escalate → log_telemetry
+  └── LOW/MEDIUM → log_telemetry
+  ↓
+[ interrupt_before ]         ⏸️ HUMAN APPROVAL GATE — state persisted via checkpointer
+  ↓
+send_communication           Runs only after human approval
+  ↓
+END
 ```
 
 ![LangGraph Agent Flow](agent/graph_visualisation.png)
@@ -61,28 +66,26 @@ draft_communication   Claude API → drafts actual email per recommended action
 
 ## 🏗️ Architecture Patterns
 
-### Pattern 1 — Rule + LLM Hybrid
-Deterministic rules for codifiable decisions (pre-classify). LLM only where genuine judgment is required (collection strategy, communication drafting). Reduces cost per invoice by ~60% versus pure LLM approaches while maintaining auditability.
+### Pattern 1 — Orchestrator with Parallel Dispatch
+The 5 utility agents run concurrently via LangGraph's `Send` API, dispatched by an orchestrator node and rejoined at an aggregator. Demonstrates the map-reduce / fan-out-fan-in pattern in an agentic context.
 
-### Pattern 2 — RAG (Retrieval Augmented Generation)
-Past decisions stored as vectors. New invoices query for similar historical cases before strategy decision. Agent learns from institutional history rather than treating each invoice as new.
+### Pattern 2 — Rule + LLM Hybrid
+Deterministic rules for codifiable decisions (pre-classify). LLM only where genuine judgment is required (collection strategy, communication drafting). Keeps cost down and decisions auditable.
 
-### Pattern 3 — Rubric-Based Decision Scoring
-Collection Strategy Agent follows explicit 0-15 point rubric. Every signal is scored. Total determines risk rating. Decision is fully reconstructable and explainable — critical for enterprise compliance.
+### Pattern 3 — Semantic RAG (Retrieval Augmented Generation)
+Past decisions stored as 384-dimension sentence-transformer embeddings (`all-MiniLM-L6-v2`). New invoices retrieve genuinely similar historical cases by meaning, not keyword overlap. Replaced an earlier hash-embedding prototype — retrieval quality improved measurably (relevant vendor cases now surface at ~0.65 similarity versus near-random before).
 
-### Pattern 4 — Recommended Action Output
-Strategy agent does not just rate risk — it recommends one of 6 specific actions:
-- `SEND_COURTESY_REMINDER`
-- `SEND_DUNNING_LEVEL_1`  
-- `SEND_DUNNING_LEVEL_2`
-- `ESCALATE_SENIOR_MANAGEMENT`
-- `PLACE_CREDIT_HOLD`
-- `INITIATE_LEGAL_REVIEW`
+### Pattern 4 — Human-in-the-Loop with State Persistence
+The agent pauses before any consequential action using `interrupt_before` and a SQLite checkpointer. State is persisted to disk during the pause — the workflow can resume after a process restart, and every approval is auditable. Implemented at three levels: standalone, single-invoice UI, and batch (per-invoice approval across many simultaneously-paused graphs).
 
-Communication Drafting Agent then produces the appropriate email based on this decision.
+### Pattern 5 — Schema Mapping Agent
+A Claude-powered ingestion layer maps arbitrary CSV column names to the required schema by reasoning semantically over column names and sample rows. Returns `null` for unmappable fields and blocks the pipeline on insufficient data — refusing to guess rather than processing bad input.
 
-### Pattern 5 — Separation of Strategy from Drafting
-Two distinct nodes. Strategy decides what action to take. Drafting produces the artifact. Each agent has one responsibility — testable, debuggable, swappable.
+### Pattern 6 — Observability Layer
+A separate Observer module performs cross-run analysis over the telemetry table — risk distribution, vendor risk patterns, repeat-offender detection, action distribution. Deliberately not a graph node: cross-run patterns operate at a different scope than single-run execution.
+
+### Pattern 7 — Rubric-Based Decision Scoring
+The Collection Strategy Agent follows an explicit 0-15 point rubric. Every signal is scored; the total determines the rating. Decisions are fully reconstructable — critical for enterprise compliance.
 
 ---
 
@@ -91,10 +94,12 @@ Two distinct nodes. Strategy decides what action to take. Drafting produces the 
 | Layer | Technology |
 |-------|-----------|
 | AI/LLM | Claude Sonnet 4.5 (Anthropic API) |
-| Orchestration | LangGraph |
+| Orchestration | LangGraph (Send API, conditional edges, checkpointer) |
+| HITL / State | `interrupt_before` + SqliteSaver checkpointer |
+| RAG Layer | sentence-transformers (`all-MiniLM-L6-v2`, 384-dim) |
 | Frontend | Streamlit |
-| Database | SQLite (telemetry) |
-| RAG Layer | Custom vector store (hash embeddings) |
+| Database | SQLite (telemetry + checkpoints) |
+| Containerisation | Docker |
 | Data | Pandas |
 | Language | Python 3.12 |
 
@@ -119,18 +124,6 @@ Two distinct nodes. Strategy decides what action to take. Drafting produces the 
 
 ---
 
-## 🎬 Demo
-
-[Watch the demo video](https://youtu.be/T6nuN8oWnps) or try the live app:
-
-```
-https://aneesh-collections-ai-agent.streamlit.app/
-```
-
-Upload any invoice CSV with columns: `vendor, invoice_amount, days_since_invoice, payment_term_days`
-
----
-
 ## 🚀 Run Locally
 
 ### 1. Clone the repo
@@ -150,113 +143,87 @@ cp .env.example .env
 # Add your Anthropic API key to .env
 ```
 
-### 4. Initialise the database
+### 4. Initialise the database and vector store
 ```bash
 python agent/setup_database.py
-```
-
-### 5. Build the vector store
-```bash
 python agent/chromadb_setup.py
 ```
 
-### 6. Run the app
+### 5. Run the app
 ```bash
-streamlit run agent/app.py
+streamlit run agent/app_v2.py
 ```
 
 ---
 
-## 📁 Project Structure
+## 🐳 Run with Docker
 
+```bash
+# Build the image
+docker build -t collections-ai-agent .
+
+# Run the container (passes your .env for the API key)
+docker run -p 8501:8501 --env-file .env collections-ai-agent
 ```
-collections-ai-agent/
-├── agent/
-│   ├── app.py                  # Streamlit dashboard
-│   ├── setup_database.py       # SQLite initialisation
-│   ├── chromadb_setup.py       # Vector store builder
-│   ├── create_synthetic_data.py # Generates UA datasets
-│   ├── telemetry_logger.py     # Original Claude pipeline
-│   ├── aging_buckets.csv       # AR aging by vendor
-│   ├── dispute_history.csv     # Active and resolved disputes
-│   ├── ptp_history.csv         # Promise-to-pay records
-│   ├── credit_balance.csv      # Credit limits and utilisation
-│   ├── vendor_master.csv       # Vendor tiers and scores
-│   ├── invoices.csv            # Sample invoices
-│   └── graph_visualisation.png # LangGraph architecture diagram
-├── dev/                        # LangGraph development iterations
-│   ├── langgraph_Day1.py       # Single node graph
-│   ├── langgraph_Day2.py       # Two nodes + pre_classify
-│   ├── ...
-│   └── langgraph_Day10.py      # Full 11-node pipeline
-├── vector_store.json           # RAG vector store
-├── requirements.txt
-└── README.md
-```
+
+Then open `http://localhost:8501`. The entire pipeline — semantic RAG, HITL, Schema Mapper — runs self-contained in the container with no host Python setup required.
 
 ---
 
 ## 💼 Business Case
 
 ### Effort Reduction
-- Manual collector handles 50-100 invoices per day with 15-20 min decision time
-- Agent processes 10,000 invoices in ~10 minutes  
-- Effort reduction on initial assessment: ~90%
-- Reallocates analyst time to complex dispute resolution
+- Manual collectors handle 50-100 invoices per day at 15-20 min decision time each
+- The agent processes a portfolio in minutes with a full audit trail
+- ~90% effort reduction on initial assessment, reallocating analyst time to complex dispute resolution
 
 ### Working Capital Impact
 - Faster, more consistent risk assessment shortens collection cycles
-- Even a small DSO reduction releases proportional working capital from AR
-- Working capital savings = (Annual Revenue / 365) × Days of DSO Reduction
-- At typical enterprise cost of capital, every day of DSO improvement also reduces finance costs
-- Impact scales linearly with portfolio size — larger AR portfolios see larger absolute savings
+- Optimized working capital management
+- Every day of DSO improvement also reduces finance costs at the enterprise cost of capital
+- Impact scales linearly with portfolio size
 
 ### Consistency and Compliance
 - Every decision follows the same rubric — eliminates analyst-to-analyst variability
-- Full audit trail of every assessment
+- Full audit trail of every assessment and every human approval
 - Recommended actions tied to defined policy thresholds
-- Communications calibrated to vendor tier and risk level
+- Human-in-the-loop ensures no consequential communication is sent autonomously
 
 ---
 
 ## 🗺️ Roadmap
 
 ### v1.0 — Batch Processor ✅ Complete
-- 11-node LangGraph pipeline
-- 5 Utility Agents enriching state
-- Rubric-based Collections Strategy Agent
-- RAG retrieval of past decisions
-- Communication Drafting Agent
-- Streamlit dashboard with drill-down analytics
-- Public deployment on Streamlit Cloud
+- LangGraph pipeline, 5 parallel utility agents, rubric-based strategy
+- RAG retrieval, communication drafting, Streamlit Cloud deployment
 
-### v1.5 — Workflow Layer 🔄 In Progress
-- Orchestrator Agent for parallel UA execution (LangGraph Send API)
-- Human-in-the-loop approval before communication send
+### v1.5 — Workflow Layer ✅ Complete
+- Orchestrator with parallel UA dispatch (Send API)
+- Human-in-the-loop approval with checkpointer state persistence (standalone + single + batch)
+- Observer Agent for cross-run telemetry analysis
+- Schema Mapper Agent for arbitrary-CSV ingestion with insufficiency handling
+- Semantic embeddings upgrade (sentence-transformers)
 - Docker containerisation
-- Observer Agent for telemetry pattern analysis
-- Semantic embeddings upgrade (sentence-transformers or Anthropic embeddings)
 
 ### v2.0 — Stateful Lifecycle Engine 📋 Roadmap
 - Unique invoice_id tracking across processing cycles
 - Invoice status state machine (NEW → ASSESSED → SOA_SENT → DISPUTED/PTP/DUNNING → RESOLVED)
 - Event log table with full touchpoint history per invoice
 - Mailbox monitoring for inbound customer events (Gmail MCP)
-- Conditional dunning suppression when active PTP exists
+- Conditional dunning suppression when an active PTP exists
 - Dispute Handler Agent for in-flight customer responses
+- Observer feedback loop — acting on detected patterns, not just reporting them
 - Stateful agent re-entry from last known state
 
 ---
 
 ## 🎓 What This Demonstrates
 
-For prospective employers and consulting clients, this project demonstrates:
-
 - **Domain expertise** — Real source-to-cash collections workflow with accurate risk signals
-- **Architectural maturity** — Hybrid rules+LLM, RAG retrieval, separation of strategy from drafting
-- **Production thinking** — Telemetry logging, conditional edges, action-based routing
-- **Self-aware engineering** — Clear v1.0/v1.5/v2.0 phasing documenting what is built vs roadmap
-- **End-to-end delivery** — From local development through Cloud deployment with public URL
+- **Architectural maturity** — Orchestration, semantic RAG, HITL with state persistence, separation of concerns
+- **Production thinking** — Telemetry, observability, containerisation, graceful failure on bad input
+- **AI governance** — Human-in-the-loop for consequential actions, full auditability
+- **End-to-end delivery** — From local development through Cloud deployment and containerisation
 
 ---
 
@@ -264,10 +231,10 @@ For prospective employers and consulting clients, this project demonstrates:
 
 **Aneesh Ghosh**
 - IIT Kanpur MBA — Operations & Analytics
-- 5+ years in source-to-cash transformation (AP, PTP, Collections, Supply Chain)
-- Currently deploying agentic AI for enterprise managed services clients
+- Source-to-cash transformation across AP, PTP, Collections, and Supply Chain
+- Building and deploying agentic AI for enterprise managed services clients
 
-🔗 LinkedIn: [Aneesh Ghosh](https://www.linkedin.com/in/aneeshghosh96/)  
+🔗 LinkedIn: [Aneesh Ghosh](https://www.linkedin.com/in/aneeshghosh96/)
 📂 GitHub: [@aneeshg20](https://github.com/aneeshg20)
 
 ---
@@ -275,7 +242,3 @@ For prospective employers and consulting clients, this project demonstrates:
 ## 📜 License
 
 MIT License — feel free to learn from, adapt, or build upon this work.
-
----
-
-*Built between April 25 - June 2026. From zero Python to a production-deployed AI agent in 6 weeks.*
