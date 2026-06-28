@@ -1,13 +1,13 @@
 # 💰 Collections AI Agent
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit)](https://aneesh-collections-ai-agent.streamlit.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit)](https://aneeshg-collections-ai-agent.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://www.python.org)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Agentic%20AI-green)](https://langchain-ai.github.io/langgraph/)
 [![Docker](https://img.shields.io/badge/Docker-Containerised-2496ED?logo=docker)](https://www.docker.com/)
 
 **An enterprise-grade agentic AI system for accounts receivable risk assessment and collections strategy automation — with human-in-the-loop approval, semantic retrieval, and arbitrary-schema ingestion.**
 
-**🚀 Try it live:** [aneesh-collections-ai-agent.streamlit.app](https://aneesh-collections-ai-agent.streamlit.app/)
+**🚀 Try it live:** [aneeshg-collections-ai-agent.streamlit.app](https://aneeshg-collections-ai-agent.streamlit.app/)
 
 ---
 
@@ -179,7 +179,7 @@ Then open `http://localhost:8501`. The entire pipeline — semantic RAG, HITL, S
 
 ### Working Capital Impact
 - Faster, more consistent risk assessment shortens collection cycles
-- Optimized working capital management
+- Working capital released = (Annual Revenue / 365) × Days of DSO Reduction
 - Every day of DSO improvement also reduces finance costs at the enterprise cost of capital
 - Impact scales linearly with portfolio size
 
