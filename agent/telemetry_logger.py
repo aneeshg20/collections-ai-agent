@@ -17,7 +17,11 @@ conn.execute("""
         risk_rating TEXT,
         timestamp TEXT,
         tokens_used INTEGER,
-        model TEXT
+        model TEXT,
+        days_overdue INTEGER,
+        amount_tier TEXT,
+        overdue_flag INTEGER,
+        reasoning TEXT
     )
 """)
 

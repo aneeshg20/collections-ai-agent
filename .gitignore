@@ -11,3 +11,12 @@ agent/clean_kaggle_data.py
 agent/kaggle_sample_20.csv
 agent/streamlit*.pdf
 agent/practice_sql1.py
+agent/langgraph_*.py
+agent/lannggraph_*.py
+agent/practice_*.py
+agent/python_Day*.py
+checkpoints.db
+checkpoints.db-shm
+checkpoints.db-wal
+db/
+.vscode/
